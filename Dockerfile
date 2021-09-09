@@ -1,6 +1,6 @@
-FROM php:7.1-apache
+FROM php:7.3-apache
 
-ENV XDEBUG_PORT 9000
+ENV XDEBUG_PORT 9003
 
 # Install System Dependencies
 
@@ -9,16 +9,22 @@ RUN apt-get update \
 	software-properties-common \
 	&& apt-get update \
 	&& DEBIAN_FRONTEND=noninteractive apt-get install -y \
+	&& apt-get install -y alien \
 	libfreetype6-dev \
 	libicu-dev \
-  libssl-dev \
+  	libssl-dev \
+  	libxml2-dev \
+	libxslt-dev \
+	libonig-dev \
 	libjpeg62-turbo-dev \
 	libmcrypt-dev \
 	libedit-dev \
 	libedit2 \
 	libxslt1-dev \
 	apt-utils \
+	libcurl3-dev \
 	gnupg \
+	libpng-dev \
 	redis-tools \
 	mariadb-client\
 	git \
@@ -27,10 +33,27 @@ RUN apt-get update \
 	curl \
 	lynx \
 	psmisc \
+	libaio1 \
 	unzip \
 	tar \
 	cron \
-	bash-completion \
+	libzip-dev \
+	git-core \ 
+	bash-completion \ 
+	&& docker-php-ext-install curl \
+	&& docker-php-ext-install bcmath \
+	&& apt-get install -y libmcrypt-dev \
+	&& pecl install mcrypt-1.0.2 \
+	&& docker-php-ext-enable mcrypt \
+	&& docker-php-ext-install hash \
+	&& docker-php-ext-install simplexml \
+	&& docker-php-ext-install xml \
+	&& docker-php-ext-install xsl \  
+	&& docker-php-ext-install json \ 
+	&& docker-php-ext-install opcache \ 
+	&& docker-php-ext-install mysqli \ 
+	&& docker-php-ext-enable mysqli \ 
+	&& docker-php-ext-install sockets \
 	&& apt-get clean
 
 # Install Magento Dependencies
@@ -43,19 +66,35 @@ RUN docker-php-ext-configure \
   	bcmath \
   	intl \
   	mbstring \
-  	mcrypt \
   	pdo_mysql \
   	soap \
   	xsl \
-  	zip
+  	zip 
 
-# Install oAuth
+# Oracle instantclient
+RUN mkdir /opt/oracle \
+    && curl 'https://download.oracle.com/otn_software/linux/instantclient/19600/instantclient-basic-linux.x64-19.6.0.0.0dbru.zip' --output /opt/oracle/instantclient-basic-linux.zip \
+    && curl 'https://download.oracle.com/otn_software/linux/instantclient/19600/instantclient-sdk-linux.x64-19.6.0.0.0dbru.zip' --output /opt/oracle/instantclient-sdk-linux.zip \
+    && unzip '/opt/oracle/instantclient-basic-linux.zip' -d /opt/oracle \
+    && unzip '/opt/oracle/instantclient-sdk-linux.zip' -d /opt/oracle \
+    && rm /opt/oracle/instantclient-*.zip \
+    && mv /opt/oracle/instantclient_* /opt/oracle/instantclient \
+    && docker-php-ext-configure oci8 --with-oci8=instantclient,/opt/oracle/instantclient \
+    && docker-php-ext-install oci8 \
+    && echo /opt/oracle/instantclient/ > /etc/ld.so.conf.d/oracle-insantclient.conf \
+    && ldconfig
+
+RUN docker-php-ext-configure pdo_oci --with-pdo-oci=instantclient,/opt/oracle/instantclient \
+       && docker-php-ext-install \
+               pdo_oci \
+       && docker-php-ext-enable \
+               oci8
 
 RUN apt-get update \
   	&& apt-get install -y \
   	libpcre3 \
   	libpcre3-dev \
-  	# php-pear \
+  	# php7.3-pear \
   	&& pecl install oauth \
   	&& echo "extension=oauth.so" > /usr/local/etc/php/conf.d/docker-php-ext-oauth.ini
 
@@ -69,6 +108,7 @@ RUN curl -sL https://deb.nodesource.com/setup_12.x | bash - \
 # Install Composer
 
 RUN	curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin/ --filename=composer
+RUN composer self-update --1
 RUN composer global require hirak/prestissimo
 
 # Install Code Sniffer
@@ -122,4 +162,5 @@ RUN chmod 777 -Rf /var/www /var/www/.* \
 	&& usermod -u 1000 www-data \
 	&& chsh -s /bin/bash www-data\
 	&& a2enmod rewrite \
-	&& a2enmod headers
+	&& a2enmod headers \
+	&& a2enmod ssl
