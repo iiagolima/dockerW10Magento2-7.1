@@ -85,4 +85,3 @@ or to run in the background using detached mode
 ### License
 
 MIT © 2018 [Rafael Corrêa Gomes](https://github.com/rafaelstz/) and [contributors](https://github.com/clean-docker/Magento2/graphs/contributors).
-"# dockerW10Magento2-7.1" 
